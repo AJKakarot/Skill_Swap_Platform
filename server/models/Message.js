@@ -1,28 +1,14 @@
-// models/Message.js
 import mongoose from 'mongoose';
 
-const messageSchema = new mongoose.Schema({
-  sender: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
+const messageSchema = new mongoose.Schema(
+  {
+    sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    receiver: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // for 1-to-1
+    content: { type: String, trim: true },
+    file: { type: String }, // file path or URL
+    chat: { type: mongoose.Schema.Types.ObjectId, ref: 'Chat', required: true },
   },
-  receiver: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
-  },
-  message: {
-    type: String,
-    default: '',
-  },
-  fileUrl: {
-    type: String, // For PDF/file sharing
-  },
-  room: {
-    type: String, // Optional chat room ID (UUID or custom)
-  },
-}, { timestamps: true });
+  { timestamps: true }
+);
 
-const Message = mongoose.model('Message', messageSchema);
-export default Message;
+export default mongoose.model('Message', messageSchema);

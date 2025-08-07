@@ -1,17 +1,24 @@
 import express from 'express';
 import {
-  sendRequest,
-  getMyRequests,
-  updateRequestStatus,
+  createSkillRequest,
+  getAllRequests,
+  respondToRequest,
   getAcceptedConnections,
 } from '../controllers/skillRequestController.js';
-import { isAuthenticated } from '../middlewares/authMiddleware.js';
+import verifyToken from '../middlewares/verifyToken.js';
 
 const router = express.Router();
 
-router.post('/send/:toUserId', isAuthenticated, sendRequest);
-router.get('/my', isAuthenticated, getMyRequests);
-router.put('/status/:requestId', isAuthenticated, updateRequestStatus);
-router.get('/accepted', isAuthenticated, getAcceptedConnections);
+// Send a skill swap request
+router.post('/', verifyToken, createSkillRequest);
+
+// Get all requests sent or received by the logged-in user
+router.get('/', verifyToken, getAllRequests);
+
+// Respond to a request (accept/reject)
+router.put('/:requestId/respond', verifyToken, respondToRequest);
+
+// ✅ Get all accepted connections
+router.get('/accepted', verifyToken, getAcceptedConnections);
 
 export default router;
