@@ -23,10 +23,7 @@ app.use('/api/requests', requestRoutes);
 app.use('/api/meeting', meetingRoutes);
 app.use('/api/messages', messagingRoutes); // 💬 Combined messaging module
 
-// Test route
-app.get('/', (req, res) => {
-  res.send('🎉 Skill Swap API is running...');
-});
+
 
 // Server listen
 const PORT = process.env.PORT || 5000;
