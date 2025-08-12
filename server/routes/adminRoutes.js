@@ -7,12 +7,12 @@ import {
   getAllReports,
   resolveReport,
 } from "../controllers/adminController.js";
-import { protect } from "../middleware/authMiddleware.js";
-import { adminAuth } from "../middleware/adminAuth.js";
+import { isAuthenticated } from "../middlewares/authMiddleware.js";
+import { adminAuth } from "../middlewares/adminAuth.js";
 
 const router = express.Router();
 
-router.use(protect, adminAuth); // all admin routes need admin check
+router.use(isAuthenticated, adminAuth); // all admin routes need admin check
 
 router.get("/users", getAllUsers);
 router.get("/users/search", searchUserByEmail);

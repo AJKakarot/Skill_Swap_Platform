@@ -5,17 +5,17 @@ import {
   updateReportAI,
   deleteReport,
 } from "../controllers/reportController.js";
-import { adminOnly } from "../middleware/adminOnly.js";
-import { protect } from "../middleware/authMiddleware.js";
+import { adminAuth  } from "../middlewares/adminAuth.js";
+import { isAuthenticated } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
 // User can report
-router.post("/", protect, createReport);
+router.post("/", isAuthenticated, createReport);
 
 // Admin routes
-router.get("/", protect, adminOnly, getAllReports);
-router.put("/:id/ai", protect, adminOnly, updateReportAI);
-router.delete("/:id", protect, adminOnly, deleteReport);
+router.get("/", isAuthenticated, adminAuth , getAllReports);
+router.put("/:id/ai", isAuthenticated, adminAuth , updateReportAI);
+router.delete("/:id", isAuthenticated, adminAuth  , deleteReport);
 
 export default router;
