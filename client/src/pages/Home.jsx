@@ -1,38 +1,101 @@
-import { Box, Button, Container, Grid, Typography, Card, CardContent } from "@mui/material";
+import React, { useEffect, useState } from "react";
+import {
+  Button,
+  Typography,
+  Dialog,
+  DialogTitle,
+  DialogActions,
+  Container,
+  Box,
+} from "@mui/material";
 import { styled } from "@mui/system";
+import axios from "axios";
+import socket from "../utils/socketio"; // socket connection
 
+// Page background
 const GradientBackground = styled(Box)({
-  minHeight: "100vh",
-  background: "linear-gradient(135deg, #000000, #0f2027, #203a43, #2c5364)", // black gradient
+  flex: 1,
+  width: "100%",
+  minHeight: "calc(100vh - 64px - 80px)",
+  background: "linear-gradient(135deg, #000000, #0f2027, #203a43, #2c5364)",
   color: "#fff",
   paddingBottom: "50px",
+  display: "flex",
+  flexDirection: "column",
 });
 
-const SkillCard = ({ title, description }) => (
-  <Card
-    sx={{
-      background: "rgba(255, 255, 255, 0.05)",
-      color: "#fff",
-      borderRadius: "12px",
-      border: "1px solid rgba(255,255,255,0.1)",
-      "&:hover": { transform: "scale(1.05)", transition: "0.3s ease" },
-    }}
-  >
-    <CardContent>
-      <Typography variant="h6" fontWeight="bold">
-        {title}
-      </Typography>
-      <Typography variant="body2" sx={{ color: "#ccc" }}>
-        {description}
-      </Typography>
-    </CardContent>
-  </Card>
-);
+// Single user row styling
+const UserRow = styled(Box)({
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  padding: "10px 10px",
+  borderRadius: "8px",
+  marginBottom: "12px",
+  background: "linear-gradient(135deg, #000000, #0f2027, #203a43, #2c5364)",
+  color: "#fff",
+  width: "100%",
+  transition: "transform 0.2s ease, box-shadow 0.2s ease",
 
+  "&:hover": {
+    transform: "scale(1.02)",
+    boxShadow: "0px 4px 20px rgba(0, 198, 255, 0.4)",
+    cursor: "pointer",
+  },
+});
 export default function Home() {
+  const [users, setUsers] = useState([]);
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [incomingRequest, setIncomingRequest] = useState(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      console.error("No token found");
+      return;
+    }
+
+    axios
+      .get("http://localhost:4000/api/auth/me", {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then((res) => {
+        setCurrentUserId(res.data._id);
+
+        return axios.get("http://localhost:4000/api/auth/users", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      })
+      .then((res) => {
+        setUsers(res.data);
+      })
+      .catch((err) => {
+        console.error("Error fetching users:", err);
+      });
+
+    socket.emit("joinRoom", currentUserId);
+
+    socket.on("receiveCallRequest", ({ from }) => setIncomingRequest(from));
+    socket.on("callAccepted", ({ meetLink }) => window.open(meetLink, "_blank"));
+
+    return () => {
+      socket.off("receiveCallRequest");
+      socket.off("callAccepted");
+    };
+  }, [currentUserId]);
+
+  const sendCallRequest = (toId) => {
+    socket.emit("sendCallRequest", { from: currentUserId, to: toId });
+  };
+
+  const acceptCall = () => {
+    const meetLink = "https://meet.google.com/demo-link";
+    socket.emit("acceptCall", { from: incomingRequest, meetLink });
+    setIncomingRequest(null);
+  };
+
   return (
     <GradientBackground>
-      {/* Hero Section */}
       <Container sx={{ textAlign: "center", py: 8 }}>
         <Typography
           variant="h2"
@@ -51,70 +114,81 @@ export default function Home() {
           variant="h6"
           sx={{ maxWidth: "600px", mx: "auto", color: "#ccc", mb: 4 }}
         >
-          Connect with people who have the skills you want to learn, and share your own expertise in return.
-        </Typography>
-        <Button
-          variant="contained"
-          sx={{
-            background: "linear-gradient(90deg, #00c6ff, #0072ff)",
-            px: 4,
-            py: 1.5,
-            fontWeight: "bold",
-            borderRadius: "8px",
-          }}
-        >
-          Explore Skills
-        </Button>
-      </Container>
-
-      {/* Skills Section */}
-      <Container sx={{ mt: 8 }}>
-        <Typography
-          variant="h4"
-          align="center"
-          sx={{
-            fontWeight: "bold",
-            mb: 4,
-            fontFamily: "'Poppins', sans-serif",
-          }}
-        >
-          Popular Skills
-        </Typography>
-        <Grid container spacing={3}>
-          <Grid item xs={12} sm={6} md={4}>
-            <SkillCard title="Web Development" description="Learn to build modern websites with experts." />
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <SkillCard title="Graphic Design" description="Enhance your design skills with creative minds." />
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <SkillCard title="Digital Marketing" description="Master SEO, social media, and online branding." />
-          </Grid>
-        </Grid>
-      </Container>
-
-      {/* About Section */}
-      <Container sx={{ mt: 10 }}>
-        <Typography variant="h4" align="center" fontWeight="bold" gutterBottom>
-          About Skill Swap
-        </Typography>
-        <Typography
-          variant="body1"
-          align="center"
-          sx={{ maxWidth: "700px", mx: "auto", color: "#ccc" }}
-        >
-          Skill Swap is a platform that connects learners and teachers directly.
-          Whether you want to learn a new language, code an app, or paint a masterpiece,
-          you can find someone willing to teach you in exchange for your skills.
+          Connect with people who have the skills you want to learn, and share
+          your own expertise in return.
         </Typography>
       </Container>
 
-      {/* Footer */}
-      <Box sx={{ mt: 8, py: 3, textAlign: "center", borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-        <Typography variant="body2" color="#888">
-          © {new Date().getFullYear()} Skill Swap | All Rights Reserved
-        </Typography>
-      </Box>
+      <Container>
+        {users.map((user) => (
+          <UserRow key={user._id}>
+            {/* Left side: User info */}
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="h6" fontWeight="bold">
+                {user.name}
+              </Typography>
+              <Typography variant="body2">
+                Skills: {user.skills.join(", ")}
+              </Typography>
+            </Box>
+
+            {/* Right side: Actions */}
+            <Box sx={{ display: "flex", gap: 1, flexShrink: 0 }}>
+              <Button
+                variant="contained"
+                sx={{
+                  backgroundColor: "#ff4b2b",
+                  borderRadius: "20px",
+                  fontWeight: "bold",
+                  px: 2,
+                  "&:hover": { backgroundColor: "#e84118" },
+                }}
+              >
+                Report
+              </Button>
+              <Button
+                variant="contained"
+                sx={{
+                  backgroundColor: "#00b894",
+                  borderRadius: "20px",
+                  fontWeight: "bold",
+                  px: 2,
+                  "&:hover": { backgroundColor: "#009970" },
+                }}
+                onClick={() => sendCallRequest(user._id)}
+              >
+                Send Request
+              </Button>
+              {incomingRequest === user._id && (
+                <Button
+                  variant="contained"
+                  sx={{
+                    backgroundColor: "#6c5ce7",
+                    borderRadius: "20px",
+                    fontWeight: "bold",
+                    px: 2,
+                    "&:hover": { backgroundColor: "#5a4dd6" },
+                  }}
+                  onClick={acceptCall}
+                >
+                  Accept Video Call
+                </Button>
+              )}
+            </Box>
+          </UserRow>
+        ))}
+      </Container>
+
+      {/* Video call request dialog */}
+      <Dialog open={!!incomingRequest}>
+        <DialogTitle>{incomingRequest} is requesting a video call</DialogTitle>
+        <DialogActions>
+          <Button onClick={() => setIncomingRequest(null)}>Reject</Button>
+          <Button onClick={acceptCall} variant="contained">
+            Accept
+          </Button>
+        </DialogActions>
+      </Dialog>
     </GradientBackground>
   );
 }

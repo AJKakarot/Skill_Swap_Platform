@@ -6,13 +6,17 @@ import {
   loginUser,
   uploadProfilePhoto,
   getCurrentUser,
+  getAllUsers
 } from '../controllers/authController.js'; // includes user controller methods too
 import { isAuthenticated } from '../middlewares/authMiddleware.js';
+
 const router = express.Router();
 
 // Auth
 router.post('/register', registerUser);
 router.post('/login', loginUser);
+router.get('/users',isAuthenticated, getAllUsers); // Get all users except the currently logged-in user
+
 
 // Profile
 router.get('/me', isAuthenticated, getCurrentUser); // optional

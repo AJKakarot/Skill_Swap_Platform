@@ -129,3 +129,18 @@ export const getCurrentUser = async (req, res) => {
     res.status(500).json({ error: 'Could not fetch user' });
   }
 };
+
+
+// GET all users except the currently logged-in user
+export const getAllUsers = async (req, res) => {
+  try {
+    const loggedInUserId = req.user.id; // from auth middleware
+    const users = await User.find({ _id: { $ne: loggedInUserId } })
+      .select("name email skills"); // only return needed fields
+
+    res.status(200).json(users);
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
