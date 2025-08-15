@@ -10,11 +10,13 @@ import AdminDashboard from "./pages/AdminDashboard";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 
+// PrivateRoute: only allow access if token exists
 const PrivateRoute = ({ children }) => {
   const token = localStorage.getItem("token");
   return token ? children : <Navigate to="/login" />;
 };
 
+// Material-UI dark theme
 const theme = createTheme({
   palette: {
     mode: "dark",
@@ -28,16 +30,18 @@ const theme = createTheme({
   },
 });
 
+// Layout: hide Navbar/Footer on login/signup pages, full-page for chat
 function Layout({ children }) {
   const location = useLocation();
-  const hideLayout = location.pathname === "/login" || location.pathname === "/signup";
+
+  // Hide layout for login/signup and optionally full-screen chatroom
+  const hideLayout =
+    ["/login", "/signup"].includes(location.pathname) || location.pathname === "/chat";
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
       {!hideLayout && <Navbar />}
-      <Box sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
-        {children}
-      </Box>
+      <Box sx={{ flex: 1 }}>{children}</Box>
       {!hideLayout && <Footer />}
     </Box>
   );
@@ -50,12 +54,17 @@ export default function App() {
       <Router>
         <Layout>
           <Routes>
+            {/* Public Routes */}
             <Route path="/signup" element={<Signup />} />
             <Route path="/login" element={<Login />} />
+
+            {/* Private Routes */}
             <Route path="/home" element={<PrivateRoute><Home /></PrivateRoute>} />
             <Route path="/chat" element={<PrivateRoute><Chat /></PrivateRoute>} />
             <Route path="/requests" element={<PrivateRoute><Requests /></PrivateRoute>} />
             <Route path="/admin" element={<PrivateRoute><AdminDashboard /></PrivateRoute>} />
+
+            {/* Redirects */}
             <Route path="/" element={<Navigate to="/signup" />} />
             <Route path="*" element={<Navigate to="/home" />} />
           </Routes>

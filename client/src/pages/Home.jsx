@@ -2,17 +2,18 @@ import React, { useEffect, useState } from "react";
 import {
   Button,
   Typography,
-  Dialog,
-  DialogTitle,
-  DialogActions,
+  Snackbar,
+  Alert,
   Container,
   Box,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
 } from "@mui/material";
 import { styled } from "@mui/system";
 import axios from "axios";
-import socket from "../utils/socketio"; // socket connection
 
-// Page background
 const GradientBackground = styled(Box)({
   flex: 1,
   width: "100%",
@@ -24,7 +25,6 @@ const GradientBackground = styled(Box)({
   flexDirection: "column",
 });
 
-// Single user row styling
 const UserRow = styled(Box)({
   display: "flex",
   alignItems: "center",
@@ -36,159 +36,142 @@ const UserRow = styled(Box)({
   color: "#fff",
   width: "100%",
   transition: "transform 0.2s ease, box-shadow 0.2s ease",
-
   "&:hover": {
     transform: "scale(1.02)",
     boxShadow: "0px 4px 20px rgba(0, 198, 255, 0.4)",
     cursor: "pointer",
   },
 });
+
 export default function Home() {
   const [users, setUsers] = useState([]);
-  const [currentUserId, setCurrentUserId] = useState(null);
-  const [incomingRequest, setIncomingRequest] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [popupOpen, setPopupOpen] = useState(false);
+  const [senderSkill, setSenderSkill] = useState(""); // your skill
+  const [receiverSkill, setReceiverSkill] = useState({}); // each user's selected skill
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (!token) {
-      console.error("No token found");
-      return;
-    }
+    if (!token) return;
 
+    // Get current user
     axios
       .get("http://localhost:4000/api/auth/me", {
         headers: { Authorization: `Bearer ${token}` },
       })
-      .then((res) => {
-        setCurrentUserId(res.data._id);
+      .then((res) => setCurrentUser(res.data))
+      .catch((err) => console.error(err));
 
-        return axios.get("http://localhost:4000/api/auth/users", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+    // Get all users
+    axios
+      .get("http://localhost:4000/api/auth/users", {
+        headers: { Authorization: `Bearer ${token}` },
       })
-      .then((res) => {
-        setUsers(res.data);
-      })
-      .catch((err) => {
-        console.error("Error fetching users:", err);
-      });
+      .then((res) => setUsers(res.data.filter((u) => u._id !== currentUser?._id)))
+      .catch((err) => console.error(err));
+  }, [currentUser?._id]);
 
-    socket.emit("joinRoom", currentUserId);
+  const sendSkillRequest = async (receiverId) => {
+    if (!currentUser) return;
 
-    socket.on("receiveCallRequest", ({ from }) => setIncomingRequest(from));
-    socket.on("callAccepted", ({ meetLink }) => window.open(meetLink, "_blank"));
+    const selectedReceiverSkill = receiverSkill[receiverId];
+    if (!senderSkill || !selectedReceiverSkill) {
+      alert("Please select both your skill and receiver's skill!");
+      return;
+    }
 
-    return () => {
-      socket.off("receiveCallRequest");
-      socket.off("callAccepted");
-    };
-  }, [currentUserId]);
-
-  const sendCallRequest = (toId) => {
-    socket.emit("sendCallRequest", { from: currentUserId, to: toId });
-  };
-
-  const acceptCall = () => {
-    const meetLink = "https://meet.google.com/demo-link";
-    socket.emit("acceptCall", { from: incomingRequest, meetLink });
-    setIncomingRequest(null);
+    try {
+      const token = localStorage.getItem("token");
+      await axios.post(
+        "http://localhost:4000/api/skill-requests/send",
+        {
+          receiverId,
+          senderSkill,
+          receiverSkill: selectedReceiverSkill,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setPopupOpen(true);
+    } catch (err) {
+      console.error("Error sending request:", err.response?.data || err.message);
+    }
   };
 
   return (
     <GradientBackground>
       <Container sx={{ textAlign: "center", py: 8 }}>
-        <Typography
-          variant="h2"
-          sx={{
-            fontWeight: "bold",
-            fontFamily: "'Poppins', sans-serif",
-            mb: 2,
-            background: "linear-gradient(90deg, #00c6ff, #0072ff)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-          }}
-        >
+        <Typography variant="h2" sx={{ mb: 2 }}>
           Swap Skills, Grow Together
         </Typography>
-        <Typography
-          variant="h6"
-          sx={{ maxWidth: "600px", mx: "auto", color: "#ccc", mb: 4 }}
-        >
-          Connect with people who have the skills you want to learn, and share
-          your own expertise in return.
-        </Typography>
+
+        <FormControl sx={{ mb: 4, minWidth: 200 }}>
+          <InputLabel>My Skill</InputLabel>
+          <Select
+            value={senderSkill}
+            onChange={(e) => setSenderSkill(e.target.value)}
+            label="My Skill"
+          >
+            {currentUser?.skills?.map((skill) => (
+              <MenuItem key={skill} value={skill}>
+                {skill}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
       </Container>
 
       <Container>
         {users.map((user) => (
           <UserRow key={user._id}>
-            {/* Left side: User info */}
             <Box sx={{ flex: 1 }}>
-              <Typography variant="h6" fontWeight="bold">
-                {user.name}
-              </Typography>
+              <Typography variant="h6">{user.name}</Typography>
               <Typography variant="body2">
                 Skills: {user.skills.join(", ")}
               </Typography>
+
+              <FormControl sx={{ mt: 1, minWidth: 180 }}>
+                <InputLabel>{user.name}'s Skill</InputLabel>
+                <Select
+                  value={receiverSkill[user._id] || ""}
+                  onChange={(e) =>
+                    setReceiverSkill((prev) => ({
+                      ...prev,
+                      [user._id]: e.target.value,
+                    }))
+                  }
+                  label={`${user.name}'s Skill`}
+                >
+                  {user.skills.map((skill) => (
+                    <MenuItem key={skill} value={skill}>
+                      {skill}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Box>
 
-            {/* Right side: Actions */}
-            <Box sx={{ display: "flex", gap: 1, flexShrink: 0 }}>
-              <Button
-                variant="contained"
-                sx={{
-                  backgroundColor: "#ff4b2b",
-                  borderRadius: "20px",
-                  fontWeight: "bold",
-                  px: 2,
-                  "&:hover": { backgroundColor: "#e84118" },
-                }}
-              >
-                Report
-              </Button>
-              <Button
-                variant="contained"
-                sx={{
-                  backgroundColor: "#00b894",
-                  borderRadius: "20px",
-                  fontWeight: "bold",
-                  px: 2,
-                  "&:hover": { backgroundColor: "#009970" },
-                }}
-                onClick={() => sendCallRequest(user._id)}
-              >
-                Send Request
-              </Button>
-              {incomingRequest === user._id && (
-                <Button
-                  variant="contained"
-                  sx={{
-                    backgroundColor: "#6c5ce7",
-                    borderRadius: "20px",
-                    fontWeight: "bold",
-                    px: 2,
-                    "&:hover": { backgroundColor: "#5a4dd6" },
-                  }}
-                  onClick={acceptCall}
-                >
-                  Accept Video Call
-                </Button>
-              )}
-            </Box>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => sendSkillRequest(user._id)}
+              sx={{ ml: 2, height: "40px" }}
+            >
+              Send Request
+            </Button>
           </UserRow>
         ))}
       </Container>
 
-      {/* Video call request dialog */}
-      <Dialog open={!!incomingRequest}>
-        <DialogTitle>{incomingRequest} is requesting a video call</DialogTitle>
-        <DialogActions>
-          <Button onClick={() => setIncomingRequest(null)}>Reject</Button>
-          <Button onClick={acceptCall} variant="contained">
-            Accept
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <Snackbar
+        open={popupOpen}
+        autoHideDuration={3000}
+        onClose={() => setPopupOpen(false)}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert onClose={() => setPopupOpen(false)} severity="success">
+          Request sent successfully!
+        </Alert>
+      </Snackbar>
     </GradientBackground>
   );
 }

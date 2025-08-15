@@ -1,109 +1,111 @@
-import SkillRequest from '../models/SkillRequest.js';
-import User from '../models/User.js';
+// controllers/skillRequestController.js
+import SkillRequest from "../models/SkillRequest.js";
+import User from "../models/User.js";
 
-// 1. Create a skill swap request
-export const createSkillRequest = async (req, res) => {
+// Send a skill request
+export const sendSkillRequest = async (req, res) => {
   try {
     const { receiverId, senderSkill, receiverSkill } = req.body;
+    const senderId = req.user._id;
+
+    if (!receiverId || !senderSkill || !receiverSkill) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
 
     // Prevent sending request to self
-    if (req.userId === receiverId) {
-      return res.status(400).json({ error: "You can't send a request to yourself." });
+    if (receiverId === senderId.toString()) {
+      return res.status(400).json({ message: "Cannot send request to yourself" });
     }
 
     // Check if request already exists
-    const existingRequest = await SkillRequest.findOne({
-      sender: req.userId,
+    const existing = await SkillRequest.findOne({
+      sender: senderId,
       receiver: receiverId,
-      status: 'pending',
+      senderSkill,
+      receiverSkill,
+      status: "pending",
     });
+    if (existing) return res.status(400).json({ message: "Request already sent" });
 
-    if (existingRequest) {
-      return res.status(400).json({ error: 'Request already sent and pending.' });
-    }
-
-    const newRequest = new SkillRequest({
-      sender: req.userId,
+    const request = await SkillRequest.create({
+      sender: senderId,
       receiver: receiverId,
       senderSkill,
       receiverSkill,
     });
 
-    await newRequest.save();
+    // Optional: Emit socket event to receiver
+    const io = req.app.get("io"); // socket.io instance
+    io.to(receiverId).emit("newSkillRequest", {
+      requestId: request._id,
+      from: senderId,
+      senderSkill,
+      receiverSkill,
+    });
 
-    res.status(201).json({ message: 'Request sent successfully', request: newRequest });
-  } catch (error) {
-    console.error('Error creating skill request:', error.message);
-    res.status(500).json({ error: 'Failed to create skill request' });
+    res.status(201).json({ message: "Skill request sent successfully", request });
+  } catch (err) {
+    console.error("Error sending skill request:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-// 2. Get all requests sent or received by current user
-export const getAllRequests = async (req, res) => {
+// Get all requests for current user
+export const getSkillRequests = async (req, res) => {
   try {
-    const userId = req.userId;
+    const userId = req.user._id;
 
-    const requests = await SkillRequest.find({
-      $or: [{ sender: userId }, { receiver: userId }],
-    })
-      .populate('sender', 'name email skills photo')
-      .populate('receiver', 'name email skills photo')
-      .sort({ updatedAt: -1 });
+    const requests = await SkillRequest.find({ receiver: userId, status: "pending" })
+      .populate("sender", "name skills avatar"); // sender info
 
-    res.json({ requests });
-  } catch (error) {
-    console.error('Error fetching requests:', error.message);
-    res.status(500).json({ error: 'Failed to fetch requests' });
+    res.json(requests);
+  } catch (err) {
+    console.error("Error fetching skill requests:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-// 3. Respond to a request (accept or reject)
-export const respondToRequest = async (req, res) => {
+// Accept a skill request
+export const acceptSkillRequest = async (req, res) => {
   try {
-    const { requestId } = req.params;
-    const { status } = req.body;
-
-    if (!['accepted', 'rejected'].includes(status)) {
-      return res.status(400).json({ error: 'Invalid status. Must be accepted or rejected.' });
-    }
+    const { requestId } = req.body; // frontend sends requestId
 
     const request = await SkillRequest.findById(requestId);
+    if (!request) return res.status(404).json({ message: "Request not found" });
 
-    if (!request) {
-      return res.status(404).json({ error: 'Request not found' });
-    }
-
-    // Only receiver can respond
-    if (request.receiver.toString() !== req.userId) {
-      return res.status(403).json({ error: 'Not authorized to respond to this request' });
-    }
-
-    request.status = status;
+    request.status = "accepted";
     await request.save();
 
-    res.json({ message: `Request ${status} successfully`, request });
-  } catch (error) {
-    console.error('Error responding to request:', error.message);
-    res.status(500).json({ error: 'Failed to respond to request' });
+    // Optional: Notify sender via socket
+    const io = req.app.get("io");
+    io.to(request.sender.toString()).emit("requestAccepted", {
+      requestId,
+      from: req.user._id,
+      senderSkill: request.senderSkill,
+      receiverSkill: request.receiverSkill,
+    });
+
+    res.json({ message: "Skill request accepted", request });
+  } catch (err) {
+    console.error("Error accepting skill request:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-// 4. Get accepted connections for current user
-export const getAcceptedConnections = async (req, res) => {
+// Reject a skill request
+export const rejectSkillRequest = async (req, res) => {
   try {
-    const userId = req.userId;
+    const { requestId } = req.body;
 
-    const acceptedConnections = await SkillRequest.find({
-      status: 'accepted',
-      $or: [{ sender: userId }, { receiver: userId }],
-    })
-      .populate('sender', 'name email skills photo')
-      .populate('receiver', 'name email skills photo')
-      .sort({ updatedAt: -1 });
+    const request = await SkillRequest.findById(requestId);
+    if (!request) return res.status(404).json({ message: "Request not found" });
 
-    res.json({ connections: acceptedConnections });
-  } catch (error) {
-    console.error('Error fetching accepted connections:', error.message);
-    res.status(500).json({ error: 'Failed to fetch accepted connections' });
+    request.status = "rejected";
+    await request.save();
+
+    res.json({ message: "Skill request rejected", request });
+  } catch (err) {
+    console.error("Error rejecting skill request:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
