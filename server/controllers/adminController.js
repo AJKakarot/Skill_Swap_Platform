@@ -35,6 +35,16 @@ export const deleteUser = async (req, res) => {
   }
 };
 
+export const adminInfo = async (req, res) => {
+  try {
+    const admin = await User.findById(req.userId).select("-password");
+    if (!admin) return res.status(404).json({ message: "Admin not found" });
+    res.json(admin);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching admin info", error: error.message });
+  }
+}
+
 // GET all reports
 export const getAllReports = async (req, res) => {
   try {

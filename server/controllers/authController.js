@@ -54,7 +54,7 @@ export const loginUser = async (req, res) => {
     }
 
     const token = jwt.sign(
-      { userId: user._id },
+      { userId: user._id , email: user.email, name: user.name ,skills: user.skills, photo: user.photo },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -144,3 +144,18 @@ export const getAllUsers = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+
+export const logoutUser = async (req, res) => { 
+  try {
+    // Clear the token from the client side (handled in client code)
+    // Here we just send a success response
+    // If you want to invalidate the token server-side, you could implement a token blacklist or similar mechanism
+
+    // For now, we just return a success message
+   return res.status(200).json({ message: 'User logged out successfully' });
+  } catch (err) {
+    console.error('Logout error:', err.message);
+    res.status(500).json({ error: 'Logout failed' });
+  }
+}
