@@ -99,26 +99,32 @@ export default function Home() {
 
   return (
     <GradientBackground>
-      <Container sx={{ textAlign: "center", py: 8 }}>
-        <Typography variant="h2" sx={{ mb: 2 }}>
-          Swap Skills, Grow Together
-        </Typography>
+     <Container sx={{ textAlign: "center", py: 8 }}>
+  <Typography variant="h2" sx={{ mb: 2 }}>
+    Swap Skills, Grow Together
+  </Typography>
 
-        <FormControl sx={{ mb: 4, minWidth: 200 }}>
-          <InputLabel>My Skill</InputLabel>
-          <Select
-            value={senderSkill}
-            onChange={(e) => setSenderSkill(e.target.value)}
-            label="My Skill"
-          >
-            {currentUser?.skills?.map((skill) => (
-              <MenuItem key={skill} value={skill}>
-                {skill}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      </Container>
+  {/* ✅ Add some extra text here */}
+  <Typography variant="h6" sx={{ mb: 4, fontWeight: 300 }}>
+    Connect with peers, exchange knowledge, and learn new skills by collaborating together.
+  </Typography>
+
+  <FormControl sx={{ mb: 4, minWidth: 200 }}>
+    <InputLabel>My Skill</InputLabel>
+    <Select
+      value={senderSkill}
+      onChange={(e) => setSenderSkill(e.target.value)}
+      label="My Skill"
+    >
+      {currentUser?.skills?.map((skill) => (
+        <MenuItem key={skill} value={skill}>
+          {skill}
+        </MenuItem>
+      ))}
+    </Select>
+  </FormControl>
+</Container>
+
 
       <Container>
         {users.map((user) => (

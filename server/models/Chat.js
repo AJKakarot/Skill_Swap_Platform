@@ -1,14 +1,11 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose';
 
-const chatMessageSchema = new mongoose.Schema(
-  {
-    sender: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-    receiver: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-    message: { type: String },
-    fileUrl: { type: String }, 
-    status: { type: String, enum: ["pending", "accepted", "rejected"], default: "pending" }// for PDFs/images
-  },
-  { timestamps: true }
-);
+const chatSchema = new mongoose.Schema({
+  isGroupChat: { type: Boolean, default: false },
+  chatName: { type: String },
+  users: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }],
+  groupAdmin: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  lastMessage: { type: mongoose.Schema.Types.ObjectId, ref: 'Message' },
+}, { timestamps: true });
 
-export default mongoose.model("ChatMessage", chatMessageSchema);
+export default mongoose.model('Chat', chatSchema);

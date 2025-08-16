@@ -1,7 +1,7 @@
 import ChatMessage from "../models/Chat.js";
 import multer from "multer";
 import path from "path";
-
+import SkillRequest from "../models/SkillRequest.js";
 
 // Multer setup for PDF uploads
 const storage = multer.diskStorage({
@@ -22,20 +22,30 @@ export const upload = multer({
 });
 
 // Get all accepted users for current user
+
 export const getAcceptedUsers = async (req, res) => {
   try {
-    const userId = req.user.id; // depends on authMiddleware
-    const users = await ChatMessage.find({
-      requester: userId,
+    // Find accepted requests where current user is involved
+    const requests = await SkillRequest.find({
+      $or: [{ sender: req.user._id }, { receiver: req.user._id }],
       status: "accepted",
-    }).populate("receiver", "name email");
-    res.json(users);
+    }).populate("sender receiver", "name email photo");
+
+    // Extract the "other user" from each request
+    const acceptedUsers = requests.map((reqObj) => {
+      if (reqObj.sender._id.toString() === req.user._id.toString()) {
+        return reqObj.receiver;
+      } else {
+        return reqObj.sender;
+      }
+    });
+
+    res.json(acceptedUsers);
   } catch (err) {
-    console.error("Error fetching accepted users:", err);
-    res.status(500).json({ error: "Server error" });
+    console.error("❌ Error in getAcceptedUsers:", err);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 };
-
 
 // Get chat history between two users
 export const getChat = async (req, res) => {

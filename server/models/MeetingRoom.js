@@ -1,22 +1,10 @@
-// models/MeetingRoom.js
 import mongoose from 'mongoose';
 
 const meetingRoomSchema = new mongoose.Schema({
-  roomId: {
-    type: String,
-    required: true,
-    unique: true,
-  },
-  users: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-  }],
-  createdAt: {
-    type: Date,
-    default: Date.now,
-    expires: '1h', // Auto-delete after 1 hour (optional)
-  },
+  roomId: { type: String, required: true, unique: true },
+  participants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }],
+  sharedFiles: [{ type: String }],
+  createdAt: { type: Date, default: Date.now, expires: '1h' },
 });
 
-const MeetingRoom = mongoose.model('MeetingRoom', meetingRoomSchema);
-export default MeetingRoom;
+export default mongoose.model('MeetingRoom', meetingRoomSchema);

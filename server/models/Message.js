@@ -1,10 +1,13 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose';
 
 const messageSchema = new mongoose.Schema({
-  chatId: { type: mongoose.Schema.Types.ObjectId, ref: "Chat" },
-  sender: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  chat: { type: mongoose.Schema.Types.ObjectId, ref: 'Chat', required: true },
+  sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  receiver: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   text: { type: String },
-  fileUrl: { type: String }, // For PDF or other attachments
+  fileUrl: { type: String },
+  type: { type: String, enum: ['text', 'image', 'pdf'], default: 'text' },
+  readBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 }, { timestamps: true });
 
-export default mongoose.model("Message", messageSchema);
+export default mongoose.model('Message', messageSchema);

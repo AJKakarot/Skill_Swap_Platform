@@ -1,149 +1,231 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  Box, Typography, Avatar, TextField,
-  IconButton, Paper, Divider, List, ListItem, ListItemAvatar, ListItemText
+  Box,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemAvatar,
+  Avatar,
+  ListItemText,
+  Typography,
+  Divider,
+  TextField,
+  Button,
 } from "@mui/material";
-import SendIcon from "@mui/icons-material/Send";
-import AttachFileIcon from "@mui/icons-material/AttachFile";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { io } from "socket.io-client";
 import axios from "axios";
 
-const API_BASE = "http://localhost:4000/api";
-const socket = io(API_BASE.replace("/api",""), { withCredentials: true });
-
-export default function Chat() {
+const Chat = () => {
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
-  const fileInputRef = useRef();
-  const messagesEndRef = useRef();
 
-  // Scroll to bottom
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  // Fetch users with accepted requests
+  // Fetch accepted users
   useEffect(() => {
     const fetchAcceptedUsers = async () => {
       try {
         const token = localStorage.getItem("token");
-        const res = await axios.get(`${API_BASE}/chat/accepted`, {
+        const res = await axios.get(`http://localhost:4000/api/chat/accepted`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setUsers(res.data);
       } catch (err) {
-        console.error("Failed to fetch accepted users:", err.message);
+        console.error("Failed to fetch accepted users:", err);
       }
     };
     fetchAcceptedUsers();
   }, []);
 
-  // Join Socket.IO room for selected user
+  // Fetch messages for selected user
   useEffect(() => {
     if (!selectedUser) return;
-    socket.emit("joinRoom", selectedUser._id);
-
-    const handleIncomingMessage = (msg) => {
-      if (msg.sender === selectedUser._id || msg.receiverId === selectedUser._id)
-        setMessages((prev) => [...prev, msg]);
+    const fetchMessages = async () => {
+      try {
+        const res = await axios.get(
+          `http://localhost:4000/api/chat/messages/${selectedUser._id}`,
+          { withCredentials: true }
+        );
+        setMessages(res.data);
+      } catch (err) {
+        console.error("Failed to fetch messages:", err);
+      }
     };
-
-    socket.on("receiveMessage", handleIncomingMessage);
-    return () => socket.off("receiveMessage", handleIncomingMessage);
+    fetchMessages();
   }, [selectedUser]);
 
-  const sendMessage = () => {
+  // Send message
+  const handleSend = async () => {
     if (!newMessage.trim() || !selectedUser) return;
-
-    const msgData = {
-      receiverId: selectedUser._id,
-      content: newMessage.trim(),
-      type: "text",
-    };
-
-    socket.emit("sendMessage", msgData);
-    setMessages((prev) => [...prev, { ...msgData, senderSelf: true }]);
-    setNewMessage("");
-  };
-
-  const sendPDF = async (e) => {
-    const file = e.target.files[0];
-    if (!file || !selectedUser) return;
-
-    const formData = new FormData();
-    formData.append("file", file);
-
     try {
-      const token = localStorage.getItem("token");
       const res = await axios.post(
-        `${API_BASE}/chat/upload/${selectedUser._id}`,
-        formData,
-        { headers: { Authorization: `Bearer ${token}`, "Content-Type": "multipart/form-data" } }
+        "http://localhost:4000/api/chat/send",
+        {
+          receiverId: selectedUser._id,
+          message: newMessage,
+        },
+        { withCredentials: true }
       );
-
-      socket.emit("sendMessage", {
-        receiverId: selectedUser._id,
-        content: res.data.fileUrl,
-        type: "pdf",
-      });
-
-      setMessages((prev) => [...prev, { content: res.data.fileUrl, type: "pdf", senderSelf: true }]);
+      setMessages([...messages, res.data]);
+      setNewMessage("");
     } catch (err) {
-      console.error("Failed to send PDF:", err.message);
+      console.error("Failed to send message:", err);
     }
   };
 
   return (
-    <Box sx={{ display: "flex", height: "80vh", boxShadow: 3, borderRadius: 2, overflow: "hidden" }}>
-      {!selectedUser && (
-        <Paper sx={{ width: "30%", overflowY: "auto", p: 2 }}>
-          <Typography variant="h6" sx={{ mb: 2 }}>Chats</Typography>
-          <List>
-            {users.map((user) => (
-              <ListItem button key={user._id} onClick={() => setSelectedUser(user)}>
-                <ListItemAvatar><Avatar src={user.avatar} /></ListItemAvatar>
-                <ListItemText primary={user.name} secondary={user.skills?.join(", ")} />
-              </ListItem>
-            ))}
-          </List>
-        </Paper>
-      )}
+    <Box
+      sx={{
+        display: "flex",
+        height: "100vh",
+        background: "linear-gradient(135deg, #000000, #0f0f0f, #1a1a1a, #262626)",
+        color: "white",
+      }}
+    >
+      {/* Left Sidebar - Users */}
+      <Box
+        sx={{
+          width: "30%",
+          borderRight: "1px solid #333",
+          overflowY: "auto",
+          background: "linear-gradient(180deg, #000000, #111111, #1a1a1a)",
+        }}
+      >
+        <Typography variant="h6" p={2} sx={{ color: "white" }}>
+          Accepted Users
+        </Typography>
+        <Divider sx={{ bgcolor: "#333" }} />
+        <List>
+          {users.map((user, index) => (
+            <ListItem
+              key={`${user._id}-${index}`}
+              disablePadding
+              sx={{
+                backgroundColor:
+                  selectedUser?._id === user._id ? "#1e1e1e" : "transparent",
+                "&:hover": { backgroundColor: "#2a2a2a" },
+              }}
+            >
+              <ListItemButton onClick={() => setSelectedUser(user)}>
+                <ListItemAvatar>
+                  <Avatar src={user.avatar} />
+                </ListItemAvatar>
+                <ListItemText
+                  primary={user.name}
+                  secondary={user.skills?.join(", ")}
+                  primaryTypographyProps={{ sx: { color: "white" } }}
+                  secondaryTypographyProps={{ sx: { color: "gray" } }}
+                />
+              </ListItemButton>
+            </ListItem>
+          ))}
+        </List>
+      </Box>
 
-      {selectedUser && (
-        <Box sx={{ display: "flex", flexDirection: "column", flex: 1 }}>
-          <Box sx={{ display: "flex", alignItems: "center", p: 2, backgroundColor: "#1976d2", color: "white" }}>
-            <IconButton onClick={() => setSelectedUser(null)} sx={{ color: "white", mr: 1 }}>
-              <ArrowBackIcon />
-            </IconButton>
-            <Avatar src={selectedUser.avatar} sx={{ mr: 2 }} />
-            <Typography variant="h6">{selectedUser.name}</Typography>
-          </Box>
+      {/* Right Chat Section */}
+      <Box sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        {selectedUser ? (
+          <>
+            <Box
+              sx={{
+                p: 2,
+                borderBottom: "1px solid #333",
+                background: "linear-gradient(90deg, #0a0a0a, #111111, #1a1a1a)",
+              }}
+            >
+              <Typography variant="h6" sx={{ color: "white" }}>
+                {selectedUser.name}
+              </Typography>
+              <Typography variant="body2" sx={{ color: "gray" }}>
+                {selectedUser.skills?.join(", ")}
+              </Typography>
+            </Box>
 
-          <Box sx={{ flex: 1, overflowY: "auto", p: 2, backgroundColor: "#f4f6f8" }}>
-            {messages.map((msg, idx) => (
-              <Box key={idx} sx={{ display: "flex", justifyContent: msg.senderSelf ? "flex-end" : "flex-start", mb: 1 }}>
-                <Paper sx={{ p: 1.5, backgroundColor: msg.senderSelf ? "#1976d2" : "#fff", color: msg.senderSelf ? "white" : "black", maxWidth: "70%" }}>
-                  {msg.type === "pdf" ? (
-                    <a href={msg.content} target="_blank" rel="noreferrer" style={{ color: "inherit", textDecoration: "underline" }}>📄 PDF File</a>
-                  ) : msg.content}
-                </Paper>
-              </Box>
-            ))}
-            <div ref={messagesEndRef} />
-          </Box>
+            {/* Messages */}
+            <Box
+              sx={{
+                flex: 1,
+                p: 2,
+                overflowY: "auto",
+                display: "flex",
+                flexDirection: "column",
+                gap: 1,
+              }}
+            >
+              {messages.map((msg, i) => (
+                <Box
+                  key={i}
+                  sx={{
+                    alignSelf:
+                      msg.sender === selectedUser._id ? "flex-start" : "flex-end",
+                    backgroundColor:
+                      msg.sender === selectedUser._id ? "#222" : "#444",
+                    borderRadius: 2,
+                    p: 1.5,
+                    maxWidth: "70%",
+                    color: "white",
+                  }}
+                >
+                  <Typography variant="body1">{msg.message}</Typography>
+                  <Typography variant="caption" sx={{ color: "gray" }}>
+                    {new Date(msg.createdAt).toLocaleTimeString()}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
 
-          <Divider />
-          <Box sx={{ display: "flex", p: 1 }}>
-            <IconButton onClick={() => fileInputRef.current.click()}><AttachFileIcon /></IconButton>
-            <input type="file" ref={fileInputRef} style={{ display: "none" }} onChange={sendPDF} accept="application/pdf" />
-            <TextField fullWidth size="small" placeholder="Type a message..." value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyPress={(e) => e.key === "Enter" && sendMessage()} />
-            <IconButton onClick={sendMessage}><SendIcon /></IconButton>
+            {/* Input */}
+            <Box
+              sx={{
+                display: "flex",
+                gap: 1,
+                p: 2,
+                borderTop: "1px solid #333",
+                background: "linear-gradient(90deg, #0a0a0a, #111111, #1a1a1a)",
+              }}
+            >
+              <TextField
+                fullWidth
+                placeholder="Type a message..."
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                sx={{
+                  input: { color: "white" },
+                  "& .MuiOutlinedInput-root": {
+                    "& fieldset": { borderColor: "#444" },
+                    "&:hover fieldset": { borderColor: "#666" },
+                    "&.Mui-focused fieldset": { borderColor: "#888" },
+                  },
+                }}
+              />
+              <Button
+                variant="contained"
+                onClick={handleSend}
+                sx={{
+                  backgroundColor: "#ffffff",
+                  color: "#000",
+                  "&:hover": { backgroundColor: "#e0e0e0" },
+                }}
+              >
+                Send
+              </Button>
+            </Box>
+          </>
+        ) : (
+          <Box
+            sx={{
+              flex: 1,
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              color: "gray",
+            }}
+          >
+            <Typography>Select a user to start chatting</Typography>
           </Box>
-        </Box>
-      )}
+        )}
+      </Box>
     </Box>
   );
-}
+};
+
+export default Chat;
